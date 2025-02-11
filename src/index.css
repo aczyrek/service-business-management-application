@@ -7,3 +7,17 @@
     font-family: 'Poppins', system-ui, sans-serif;
   }
 }
+
+@layer components {
+  .auth-container {
+    @apply w-full;
+  }
+
+  .auth-button {
+    @apply w-full bg-[#4361EE] hover:bg-[#3651D4] text-white font-medium py-2 px-4 rounded-md transition-colors;
+  }
+
+  .auth-input {
+    @apply w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#4361EE] dark:bg-gray-700 dark:text-white;
+  }
+}
