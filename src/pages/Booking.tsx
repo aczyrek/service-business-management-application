@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, Clock, User, Mail, Phone, Search,
   Scissors, Sparkles, Dog, Palette, Eye, HeartHandshake,
   Activity, Zap, Flower, PenTool, CloudSun, Dumbbell, HeartPulse,
-  MapPin, Building, Star
+  MapPin, Building, Star, ChevronLeft, ChevronRight, Check, AlertCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, isToday, isBefore, startOfDay, isAfter, parseISO } from 'date-fns';
 
 interface ServiceCategory {
   id: string;
@@ -33,14 +34,20 @@ interface Service {
 }
 
 export default function Booking() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [guestInfo, setGuestInfo] = useState({
     name: '',
     email: '',
@@ -109,6 +116,106 @@ export default function Booking() {
     });
   };
 
+  const handleConfirmBooking = async () => {
+    try {
+      setSubmitting(true);
+      setError(null);
+
+      if (!selectedService || !selectedDate || !selectedTime) {
+        throw new Error('Please select all booking details');
+      }
+
+      // Validate guest info if user is not logged in
+      if (!user) {
+        if (!guestInfo.name || !guestInfo.email || !guestInfo.phone) {
+          throw new Error('Please fill in all your contact details');
+        }
+        if (!guestInfo.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+          throw new Error('Please enter a valid email address');
+        }
+        if (!guestInfo.phone.match(/^\(\d{3}\) \d{3}-\d{4}$/)) {
+          throw new Error('Please enter a valid phone number in format (123) 456-7890');
+        }
+      }
+
+      // Convert time string to Date object
+      const [hour, period] = selectedTime.split(' ');
+      const [hourStr] = hour.split(':');
+      let bookingHour = parseInt(hourStr);
+      if (period === 'PM' && bookingHour !== 12) bookingHour += 12;
+      if (period === 'AM' && bookingHour === 12) bookingHour = 0;
+
+      const startTime = new Date(selectedDate);
+      startTime.setHours(bookingHour, 0, 0, 0);
+
+      // Calculate end time based on service duration
+      const durationMatch = selectedService.duration.match(/(\d+)/);
+      const durationMinutes = durationMatch ? parseInt(durationMatch[0]) : 60;
+      const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+
+      // Check if the time slot is available
+      const { data: existingBookings } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('service_id', selectedService.id)
+        .gte('start_time', startTime.toISOString())
+        .lt('start_time', endTime.toISOString());
+
+      if (existingBookings && existingBookings.length > 0) {
+        throw new Error('This time slot is no longer available. Please select another time.');
+      }
+
+      // Create the appointment
+      const { data: appointment, error: appointmentError } = await supabase
+        .from('appointments')
+        .insert([
+          {
+            client_id: user?.id,
+            service_id: selectedService.id,
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString(),
+            status: 'pending',
+            notes: user ? undefined : `Guest Booking - ${guestInfo.name} (${guestInfo.phone})`
+          }
+        ])
+        .select()
+        .single();
+
+      if (appointmentError) throw appointmentError;
+
+      // If guest booking, create client form entry
+      if (!user && appointment) {
+        const { error: formError } = await supabase
+          .from('client_forms')
+          .insert([
+            {
+              appointment_id: appointment.id,
+              form_data: {
+                name: guestInfo.name,
+                email: guestInfo.email,
+                phone: guestInfo.phone
+              }
+            }
+          ]);
+
+        if (formError) throw formError;
+      }
+
+      // Redirect to success page or dashboard
+      navigate('/dashboard', {
+        state: {
+          success: true,
+          message: 'Booking confirmed successfully!'
+        }
+      });
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while booking');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const filteredServices = services.filter(service => 
     service.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     service.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -124,6 +231,51 @@ export default function Booking() {
         <span className="text-sm text-gray-500 dark:text-gray-400">({count})</span>
       </div>
     );
+  };
+
+  const getAvailableTimeSlots = () => {
+    const slots = [];
+    let hour = 9;
+    
+    while (hour <= 17) {
+      const time = `${hour === 12 ? 12 : hour % 12}:00 ${hour < 12 ? 'AM' : 'PM'}`;
+      slots.push(time);
+      hour++;
+    }
+    
+    return slots;
+  };
+
+  const getCalendarDays = () => {
+    const start = startOfMonth(currentMonth);
+    const end = endOfMonth(addMonths(currentMonth, 2)); // Get days for 3 months
+    return eachDayOfInterval({ start, end });
+  };
+
+  const formatDate = (date: Date) => {
+    return format(date, 'EEEE, MMMM d, yyyy');
+  };
+
+  const isDateSelectable = (date: Date) => {
+    const today = startOfDay(new Date());
+    const threeMonthsFromNow = addMonths(today, 3);
+    return !isBefore(date, today) && !isAfter(date, threeMonthsFromNow);
+  };
+
+  const nextMonth = () => {
+    const newDate = addMonths(currentMonth, 1);
+    const maxDate = addMonths(startOfMonth(new Date()), 2);
+    if (!isAfter(newDate, maxDate)) {
+      setCurrentMonth(newDate);
+    }
+  };
+
+  const previousMonth = () => {
+    const newDate = addMonths(currentMonth, -1);
+    const today = startOfMonth(new Date());
+    if (!isBefore(newDate, today)) {
+      setCurrentMonth(newDate);
+    }
   };
 
   return (
@@ -143,7 +295,6 @@ export default function Booking() {
       )}
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-        {/* Progress Steps */}
         <div className="border-b border-gray-200 dark:border-gray-700">
           <div className="flex max-w-2xl mx-auto">
             <div className={`flex-1 text-center py-4 ${step >= 1 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500'}`}>
@@ -161,7 +312,6 @@ export default function Booking() {
           </div>
         </div>
 
-        {/* Step Content */}
         <div className="p-6">
           {step === 1 && (
             <div className="space-y-6">
@@ -254,25 +404,113 @@ export default function Booking() {
               <h2 className="text-lg font-semibold">Choose Date & Time</h2>
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-4">
-                  <div className="flex items-center">
-                    <CalendarIcon className="w-5 h-5 text-gray-400 mr-2" />
-                    <span className="text-sm font-medium">Select Date</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <CalendarIcon className="w-5 h-5 text-gray-400 mr-2" />
+                      <span className="text-sm font-medium">Select Date</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={previousMonth}
+                        disabled={isSameMonth(currentMonth, new Date())}
+                        className={`p-1 rounded-full ${
+                          isSameMonth(currentMonth, new Date())
+                            ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                            : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <span className="text-sm font-medium">
+                        {format(currentMonth, 'MMMM yyyy')}
+                      </span>
+                      <button
+                        onClick={nextMonth}
+                        disabled={isSameMonth(currentMonth, addMonths(startOfMonth(new Date()), 2))}
+                        className={`p-1 rounded-full ${
+                          isSameMonth(currentMonth, addMonths(startOfMonth(new Date()), 2))
+                            ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                            : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <p className="text-sm text-gray-500">Calendar coming soon...</p>
+
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                    <div className="grid grid-cols-7 text-center">
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                        <div
+                          key={day}
+                          className="py-2 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700"
+                        >
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7">
+                      {getCalendarDays().map((date) => {
+                        const isSelectable = isDateSelectable(date);
+                        const isSelected = isSameDay(date, selectedDate);
+                        const isCurrentMonth = isSameMonth(date, currentMonth);
+                        
+                        return (
+                          <button
+                            key={date.toISOString()}
+                            onClick={() => isSelectable && setSelectedDate(date)}
+                            disabled={!isSelectable}
+                            className={`
+                              p-2 text-sm border-t border-l first:border-l-0 border-gray-200 dark:border-gray-700
+                              ${!isCurrentMonth ? 'text-gray-400 dark:text-gray-600' : ''}
+                              ${isToday(date) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
+                              ${isSelected ? 'bg-blue-600 text-white' : ''}
+                              ${isSelectable ? 'hover:bg-gray-100 dark:hover:bg-gray-700' : 'cursor-not-allowed opacity-50'}
+                            `}
+                          >
+                            {format(date, 'd')}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+
+                  {selectedService && (
+                    <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <h3 className="font-medium mb-2">{selectedService.company_name}</h3>
+                      <div className="text-sm text-gray-600 dark:text-gray-300">
+                        <p>{selectedService.name}</p>
+                        <p>Duration: {selectedService.duration}</p>
+                        <p>Price: ${selectedService.price}</p>
+                        {renderRating(selectedService.rating, selectedService.rating_count)}
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <div className="space-y-4">
-                  <div className="flex items-center">
-                    <Clock className="w-5 h-5 text-gray-400 mr-2" />
-                    <span className="text-sm font-medium">Available Times</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <Clock className="w-5 h-5 text-gray-400 mr-2" />
+                      <span className="text-sm font-medium">Available Times</span>
+                    </div>
+                    <span className="text-sm text-gray-500">
+                      {formatDate(selectedDate)}
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    {['9:00 AM', '10:00 AM', '11:00 AM', '2:00 PM'].map((time) => (
+                    {getAvailableTimeSlots().map((time) => (
                       <button
                         key={time}
-                        onClick={() => setStep(4)}
-                        className="p-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors"
+                        onClick={() => {
+                          setSelectedTime(time);
+                          setStep(4);
+                        }}
+                        className={`p-3 text-sm border rounded-lg transition-colors ${
+                          selectedTime === time
+                            ? 'border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-400'
+                        }`}
                       >
                         {time}
                       </button>
@@ -283,63 +521,107 @@ export default function Booking() {
             </div>
           )}
 
-          {step === 4 && !user && (
-            <div className="max-w-md mx-auto space-y-4">
-              <h2 className="text-lg font-semibold">Your Details</h2>
-              <div>
-                <label className="block text-sm font-medium mb-1">Full Name</label>
-                <div className="relative">
-                  <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    name="name"
-                    value={guestInfo.name}
-                    onChange={handleGuestInfoChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
-                    placeholder="John Doe"
-                  />
+          {step === 4 && (
+            <div className="max-w-md mx-auto space-y-6">
+              {!user && (
+                <>
+                  <h2 className="text-lg font-semibold">Your Details</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Full Name</label>
+                      <div className="relative">
+                        <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          name="name"
+                          value={guestInfo.name}
+                          onChange={handleGuestInfoChange}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                          placeholder="John Doe"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Email</label>
+                      <div className="relative">
+                        <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="email"
+                          name="email"
+                          value={guestInfo.email}
+                          onChange={handleGuestInfoChange}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                          placeholder="john@example.com"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Phone</label>
+                      <div className="relative">
+                        <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="tel"
+                          name="phone"
+                          value={guestInfo.phone}
+                          onChange={handleGuestInfoChange}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                          placeholder="(123) 456-7890"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {selectedService && (
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
+                  <h3 className="font-medium">Booking Summary</h3>
+                  <div className="text-sm space-y-2">
+                    <p><span className="text-gray-500 dark:text-gray-400">Service:</span> {selectedService.name}</p>
+                    <p><span className="text-gray-500 dark:text-gray-400">Provider:</span> {selectedService.company_name}</p>
+                    <p><span className="text-gray-500 dark:text-gray-400">Date:</span> {format(selectedDate, 'MMMM d, yyyy')}</p>
+                    <p><span className="text-gray-500 dark:text-gray-400">Time:</span> {selectedTime}</p>
+                    <p><span className="text-gray-500 dark:text-gray-400">Duration:</span> {selectedService.duration}</p>
+                    <p><span className="text-gray-500 dark:text-gray-400">Price:</span> ${selectedService.price}</p>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <div className="relative">
-                  <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="email"
-                    name="email"
-                    value={guestInfo.email}
-                    onChange={handleGuestInfoChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
-                    placeholder="john@example.com"
-                  />
+              )}
+
+              {error && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 flex items-start space-x-3">
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                  <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Phone</label>
-                <div className="relative">
-                  <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={guestInfo.phone}
-                    onChange={handleGuestInfoChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
-                    placeholder="(123) 456-7890"
-                  />
-                </div>
-              </div>
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
-                Confirm Booking
+              )}
+
+              <button
+                onClick={handleConfirmBooking}
+                disabled={submitting}
+                className={`w-full flex items-center justify-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors ${
+                  submitting ? 'opacity-75 cursor-not-allowed' : ''
+                }`}
+              >
+                {submitting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Confirming...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-5 h-5" />
+                    <span>Confirm Booking</span>
+                  </>
+                )}
               </button>
             </div>
           )}
 
-          {/* Navigation Buttons */}
           {step > 1 && (
             <div className="mt-6 flex justify-between">
               <button
                 onClick={() => setStep(step - 1)}
-                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                disabled={submitting}
+                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Back
               </button>
