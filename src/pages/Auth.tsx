@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Auth as SupabaseAuth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '../lib/supabase';
@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 export default function Auth() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -18,6 +19,13 @@ export default function Auth() {
   return (
     <div className="max-w-md mx-auto bg-white dark:bg-gray-800 p-8 rounded-lg shadow-sm">
       <h2 className="text-2xl font-bold text-center mb-6 dark:text-white">Welcome Back</h2>
+      
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        </div>
+      )}
+
       <SupabaseAuth 
         supabaseClient={supabase}
         view="sign_in"
@@ -42,6 +50,7 @@ export default function Auth() {
         onlyThirdPartyProviders={false}
         magicLink={false}
         showLinks={true}
+        onError={(err) => setError(err.message)}
         localization={{
           variables: {
             sign_in: {
