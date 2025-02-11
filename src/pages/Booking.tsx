@@ -8,7 +8,7 @@ import {
   MapPin, Building, Star, ChevronLeft, ChevronRight, Check, AlertCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, isToday, isBefore, startOfDay, isAfter, parseISO } from 'date-fns';
+import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, isToday, isBefore, isAfter, startOfDay, parseISO } from 'date-fns';
 
 interface ServiceCategory {
   id: string;
@@ -116,6 +116,15 @@ export default function Booking() {
     });
   };
 
+  const handleTimeSelect = (time: string) => {
+    setSelectedTime(time);
+    if (user) {
+      setStep(4);
+    } else {
+      setStep(4);
+    }
+  };
+
   const handleConfirmBooking = async () => {
     try {
       setSubmitting(true);
@@ -125,7 +134,6 @@ export default function Booking() {
         throw new Error('Please select all booking details');
       }
 
-      // Validate guest info if user is not logged in
       if (!user) {
         if (!guestInfo.name || !guestInfo.email || !guestInfo.phone) {
           throw new Error('Please fill in all your contact details');
@@ -138,7 +146,6 @@ export default function Booking() {
         }
       }
 
-      // Convert time string to Date object
       const [hour, period] = selectedTime.split(' ');
       const [hourStr] = hour.split(':');
       let bookingHour = parseInt(hourStr);
@@ -148,12 +155,10 @@ export default function Booking() {
       const startTime = new Date(selectedDate);
       startTime.setHours(bookingHour, 0, 0, 0);
 
-      // Calculate end time based on service duration
       const durationMatch = selectedService.duration.match(/(\d+)/);
       const durationMinutes = durationMatch ? parseInt(durationMatch[0]) : 60;
       const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
 
-      // Check if the time slot is available
       const { data: existingBookings } = await supabase
         .from('appointments')
         .select('*')
@@ -165,7 +170,6 @@ export default function Booking() {
         throw new Error('This time slot is no longer available. Please select another time.');
       }
 
-      // Create the appointment
       const { data: appointment, error: appointmentError } = await supabase
         .from('appointments')
         .insert([
@@ -183,7 +187,6 @@ export default function Booking() {
 
       if (appointmentError) throw appointmentError;
 
-      // If guest booking, create client form entry
       if (!user && appointment) {
         const { error: formError } = await supabase
           .from('client_forms')
@@ -201,7 +204,6 @@ export default function Booking() {
         if (formError) throw formError;
       }
 
-      // Redirect to success page or dashboard
       navigate('/dashboard', {
         state: {
           success: true,
@@ -248,7 +250,7 @@ export default function Booking() {
 
   const getCalendarDays = () => {
     const start = startOfMonth(currentMonth);
-    const end = endOfMonth(addMonths(currentMonth, 2)); // Get days for 3 months
+    const end = endOfMonth(addMonths(currentMonth, 2));
     return eachDayOfInterval({ start, end });
   };
 
@@ -502,10 +504,7 @@ export default function Booking() {
                     {getAvailableTimeSlots().map((time) => (
                       <button
                         key={time}
-                        onClick={() => {
-                          setSelectedTime(time);
-                          setStep(4);
-                        }}
+                        onClick={() => handleTimeSelect(time)}
                         className={`p-3 text-sm border rounded-lg transition-colors ${
                           selectedTime === time
                             ? 'border-blue-500 bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
@@ -521,54 +520,60 @@ export default function Booking() {
             </div>
           )}
 
-          {step === 4 && !user && (
-            <div className="max-w-md mx-auto space-y-4">
-              <h2 className="text-lg font-semibold">Your Details</h2>
-              <div>
-                <label className="block text-sm font-medium mb-1">Full Name</label>
-                <div className="relative">
-                  <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    name="name"
-                    value={guestInfo.name}
-                    onChange={handleGuestInfoChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
-                    placeholder="John Doe"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <div className="relative">
-                  <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="email"
-                    name="email"
-                    value={guestInfo.email}
-                    onChange={handleGuestInfoChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
-                    placeholder="john@example.com"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Phone</label>
-                <div className="relative">
-                  <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={guestInfo.phone}
-                    onChange={handleGuestInfoChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
-                    placeholder="+44 7911 123456"
-                  />
-                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
-                    Format: +[country code] [number], e.g., +44 7911 123456
-                  </span>
-                </div>
-              </div>
+          {step === 4 && (
+            <div className="max-w-md mx-auto space-y-6">
+              {!user && (
+                <>
+                  <h2 className="text-lg font-semibold">Your Details</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Full Name</label>
+                      <div className="relative">
+                        <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          name="name"
+                          value={guestInfo.name}
+                          onChange={handleGuestInfoChange}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                          placeholder="John Doe"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Email</label>
+                      <div className="relative">
+                        <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="email"
+                          name="email"
+                          value={guestInfo.email}
+                          onChange={handleGuestInfoChange}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                          placeholder="john@example.com"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Phone</label>
+                      <div className="relative">
+                        <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="tel"
+                          name="phone"
+                          value={guestInfo.phone}
+                          onChange={handleGuestInfoChange}
+                          className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                          placeholder="+44 7911 123456"
+                        />
+                      </div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
+                        Format: +[country code] [number], e.g., +44 7911 123456
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
 
               {selectedService && (
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">

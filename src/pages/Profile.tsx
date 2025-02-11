@@ -97,11 +97,58 @@ export default function Profile() {
     }
   };
 
+  const validateForm = () => {
+    // Validate full name
+    if (!formData.full_name.trim()) {
+      throw new Error('Full name is required');
+    }
+
+    if (formData.full_name.trim().length < 2) {
+      throw new Error('Full name must be at least 2 characters long');
+    }
+
+    if (formData.full_name.trim().length > 50) {
+      throw new Error('Full name must be less than 50 characters');
+    }
+
+    // Check for valid characters in name (letters, spaces, hyphens, apostrophes)
+    if (!/^[a-zA-ZÀ-ÿ\s'-]+$/.test(formData.full_name.trim())) {
+      throw new Error('Full name can only contain letters, spaces, hyphens, and apostrophes');
+    }
+
+    // Validate phone if provided
+    if (formData.phone) {
+      const fullPhoneNumber = `${selectedCountry.dial_code} ${formData.phone}`;
+
+      // Check for valid phone format with country code
+      if (!fullPhoneNumber.match(/^\+\d{1,4}\s?(\d{1,3}\s?)*\d{4}$/)) {
+        throw new Error('Please enter a valid phone number');
+      }
+
+      // Check minimum length (excluding country code and spaces)
+      const digitsOnly = formData.phone.replace(/\s/g, '');
+      if (digitsOnly.length < 6) {
+        throw new Error('Phone number is too short');
+      }
+
+      // Check maximum length (excluding country code and spaces)
+      if (digitsOnly.length > 15) {
+        throw new Error('Phone number is too long');
+      }
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    setError(null); // Clear any previous errors
+
     if (name === 'phone') {
       // Only allow numbers and spaces
       const cleaned = value.replace(/[^\d\s]/g, '');
+      setFormData(prev => ({ ...prev, [name]: cleaned }));
+    } else if (name === 'full_name') {
+      // Only allow letters, spaces, hyphens, and apostrophes
+      const cleaned = value.replace(/[^a-zA-ZÀ-ÿ\s'-]/g, '');
       setFormData(prev => ({ ...prev, [name]: cleaned }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
@@ -120,17 +167,15 @@ export default function Profile() {
       setError(null);
       setSuccess(null);
 
-      const fullPhoneNumber = formData.phone ? `${selectedCountry.dial_code} ${formData.phone}` : '';
+      // Validate form data
+      validateForm();
 
-      // Validate phone number format
-      if (fullPhoneNumber && !fullPhoneNumber.match(/^\+\d{1,4}\s?(\d{1,3}\s?)*\d{4}$/)) {
-        throw new Error('Please enter a valid phone number');
-      }
+      const fullPhoneNumber = formData.phone ? `${selectedCountry.dial_code} ${formData.phone}` : '';
 
       const { error } = await supabase
         .from('profiles')
         .update({
-          full_name: formData.full_name,
+          full_name: formData.full_name.trim(),
           phone: fullPhoneNumber || null,
           updated_at: new Date().toISOString()
         })
@@ -212,6 +257,7 @@ export default function Profile() {
                     name="full_name"
                     value={formData.full_name}
                     onChange={handleInputChange}
+                    maxLength={50}
                     className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
                     placeholder="Your full name"
                   />
@@ -280,6 +326,7 @@ export default function Profile() {
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
+                      maxLength={15}
                       className="flex-1 pl-4 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-r-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
                       placeholder="7911 123456"
                     />

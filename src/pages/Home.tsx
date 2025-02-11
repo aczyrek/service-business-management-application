@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Calendar, Clock, Users, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import VideoModal from '../components/VideoModal';
 
 export default function Home() {
   const { user } = useAuth();
+  const [showVideo, setShowVideo] = useState(false);
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
@@ -45,10 +47,11 @@ export default function Home() {
                 Book Now
               </Link>
               <button 
+                onClick={() => setShowVideo(true)}
                 className="w-full sm:w-auto inline-flex items-center justify-center px-6 md:px-8 py-3 md:py-4 text-gray-700 dark:text-gray-200 border-2 border-gray-200 dark:border-gray-700 rounded-full hover:border-[#4361EE] dark:hover:border-[#6C8EFF] transition-colors text-base md:text-lg font-medium group"
               >
                 <Play className="w-4 h-4 md:w-5 md:h-5 mr-2 text-[#4361EE] dark:text-[#6C8EFF] group-hover:text-[#3651D4] dark:group-hover:text-[#5B7FFF]" />
-                How it Works
+                Short App Movie
               </button>
             </div>
 
@@ -155,6 +158,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Video Modal */}
+      <VideoModal isOpen={showVideo} onClose={() => setShowVideo(false)} />
     </div>
   );
 }
