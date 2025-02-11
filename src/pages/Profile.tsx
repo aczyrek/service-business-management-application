@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Calendar, Clock, MapPin, Phone, Mail, User, Pencil, Check, X, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, MapPin, Phone, Mail, User, Pencil, Check, X, AlertCircle, ChevronDown, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import { countryCodes, CountryCode } from '../lib/countryData';
 
 interface Appointment {
   id: string;
@@ -19,21 +20,51 @@ interface Appointment {
 }
 
 export default function Profile() {
-  const { profile, user } = useAuth();
+  const { profile, user, refreshProfile } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [searchCountry, setSearchCountry] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState<CountryCode>(() => {
+    // Try to find the country from the existing phone number
+    if (profile?.phone) {
+      const country = countryCodes.find(c => profile.phone?.startsWith(c.dial_code));
+      return country || countryCodes[0];
+    }
+    return countryCodes[0];
+  });
+
   const [formData, setFormData] = useState({
     full_name: profile?.full_name || '',
-    phone: profile?.phone || ''
+    phone: profile?.phone ? profile.phone.replace(selectedCountry.dial_code, '').trim() : ''
   });
+
+  // Filter countries based on search
+  const filteredCountries = countryCodes.filter(country =>
+    country.name.toLowerCase().includes(searchCountry.toLowerCase()) ||
+    country.dial_code.includes(searchCountry)
+  );
 
   useEffect(() => {
     fetchAppointments();
   }, [user]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const dropdown = document.getElementById('country-dropdown');
+      if (dropdown && !dropdown.contains(event.target as Node)) {
+        setShowCountryDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchAppointments = async () => {
     try {
@@ -67,10 +98,20 @@ export default function Profile() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    if (name === 'phone') {
+      // Only allow numbers and spaces
+      const cleaned = value.replace(/[^\d\s]/g, '');
+      setFormData(prev => ({ ...prev, [name]: cleaned }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleCountrySelect = (country: CountryCode) => {
+    setSelectedCountry(country);
+    setShowCountryDropdown(false);
+    setSearchCountry('');
   };
 
   const handleSave = async () => {
@@ -79,21 +120,26 @@ export default function Profile() {
       setError(null);
       setSuccess(null);
 
+      const fullPhoneNumber = formData.phone ? `${selectedCountry.dial_code} ${formData.phone}` : '';
+
       // Validate phone number format
-      if (formData.phone && !formData.phone.match(/^\(\d{3}\) \d{3}-\d{4}$/)) {
-        throw new Error('Please enter a valid phone number in format (123) 456-7890');
+      if (fullPhoneNumber && !fullPhoneNumber.match(/^\+\d{1,4}\s?(\d{1,3}\s?)*\d{4}$/)) {
+        throw new Error('Please enter a valid phone number');
       }
 
       const { error } = await supabase
         .from('profiles')
         .update({
           full_name: formData.full_name,
-          phone: formData.phone,
+          phone: fullPhoneNumber || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', user?.id);
 
       if (error) throw error;
+
+      // Refresh the profile in the context
+      await refreshProfile();
 
       setSuccess('Profile updated successfully!');
       setEditing(false);
@@ -184,15 +230,63 @@ export default function Profile() {
               </label>
               {editing ? (
                 <div className="relative">
-                  <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
-                    placeholder="(123) 456-7890"
-                  />
+                  <div className="flex">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                        className="flex items-center space-x-2 h-full px-3 border border-r-0 border-gray-200 dark:border-gray-700 rounded-l-lg bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        <span className="text-xl">{selectedCountry.flag}</span>
+                        <span className="text-sm text-gray-900 dark:text-gray-100">{selectedCountry.dial_code}</span>
+                        <ChevronDown className="w-4 h-4 text-gray-500" />
+                      </button>
+
+                      {showCountryDropdown && (
+                        <div
+                          id="country-dropdown"
+                          className="absolute z-10 mt-1 w-72 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
+                        >
+                          <div className="p-2">
+                            <div className="relative">
+                              <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="text"
+                                value={searchCountry}
+                                onChange={(e) => setSearchCountry(e.target.value)}
+                                placeholder="Search countries..."
+                                className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700"
+                              />
+                            </div>
+                          </div>
+                          <div className="max-h-60 overflow-y-auto">
+                            {filteredCountries.map((country) => (
+                              <button
+                                key={country.code}
+                                onClick={() => handleCountrySelect(country)}
+                                className="w-full flex items-center space-x-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              >
+                                <span className="text-xl">{country.flag}</span>
+                                <span className="text-sm text-gray-900 dark:text-gray-100">{country.name}</span>
+                                <span className="text-sm text-gray-500">{country.dial_code}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className="flex-1 pl-4 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-r-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                      placeholder="7911 123456"
+                    />
+                  </div>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
+                    Select your country code and enter your phone number
+                  </span>
                 </div>
               ) : (
                 <div className="flex items-center space-x-3 text-gray-900 dark:text-gray-100">

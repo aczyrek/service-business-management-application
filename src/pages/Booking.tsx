@@ -133,8 +133,8 @@ export default function Booking() {
         if (!guestInfo.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
           throw new Error('Please enter a valid email address');
         }
-        if (!guestInfo.phone.match(/^\(\d{3}\) \d{3}-\d{4}$/)) {
-          throw new Error('Please enter a valid phone number in format (123) 456-7890');
+        if (!guestInfo.phone.match(/^\+\d{1,4}\s?(\d{1,3}\s?)*\d{4}$/)) {
+          throw new Error('Please enter a valid phone number with country code (e.g., +44 7911 123456)');
         }
       }
 
@@ -521,57 +521,54 @@ export default function Booking() {
             </div>
           )}
 
-          {step === 4 && (
-            <div className="max-w-md mx-auto space-y-6">
-              {!user && (
-                <>
-                  <h2 className="text-lg font-semibold">Your Details</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Full Name</label>
-                      <div className="relative">
-                        <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="text"
-                          name="name"
-                          value={guestInfo.name}
-                          onChange={handleGuestInfoChange}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
-                          placeholder="John Doe"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Email</label>
-                      <div className="relative">
-                        <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="email"
-                          name="email"
-                          value={guestInfo.email}
-                          onChange={handleGuestInfoChange}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
-                          placeholder="john@example.com"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Phone</label>
-                      <div className="relative">
-                        <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="tel"
-                          name="phone"
-                          value={guestInfo.phone}
-                          onChange={handleGuestInfoChange}
-                          className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
-                          placeholder="(123) 456-7890"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
+          {step === 4 && !user && (
+            <div className="max-w-md mx-auto space-y-4">
+              <h2 className="text-lg font-semibold">Your Details</h2>
+              <div>
+                <label className="block text-sm font-medium mb-1">Full Name</label>
+                <div className="relative">
+                  <User className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    name="name"
+                    value={guestInfo.name}
+                    onChange={handleGuestInfoChange}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                    placeholder="John Doe"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <div className="relative">
+                  <Mail className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="email"
+                    name="email"
+                    value={guestInfo.email}
+                    onChange={handleGuestInfoChange}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                    placeholder="john@example.com"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Phone</label>
+                <div className="relative">
+                  <Phone className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={guestInfo.phone}
+                    onChange={handleGuestInfoChange}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                    placeholder="+44 7911 123456"
+                  />
+                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
+                    Format: +[country code] [number], e.g., +44 7911 123456
+                  </span>
+                </div>
+              </div>
 
               {selectedService && (
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
