@@ -5,7 +5,7 @@ import {
   Calendar as CalendarIcon, Clock, User, Mail, Phone, Search,
   Scissors, Sparkles, Dog, Palette, Eye, HeartHandshake,
   Activity, Zap, Flower, PenTool, CloudSun, Dumbbell, HeartPulse,
-  MapPin, Building
+  MapPin, Building, Star
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -25,7 +25,11 @@ interface Service {
   price: number;
   company_name: string;
   company_address: string;
+  company_phone: string;
+  company_email: string;
   category_id: string;
+  rating: number;
+  rating_count: number;
 }
 
 export default function Booking() {
@@ -109,6 +113,18 @@ export default function Booking() {
     service.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     service.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const renderRating = (rating: number, count: number) => {
+    return (
+      <div className="flex items-center space-x-1">
+        <div className="flex items-center text-yellow-400">
+          <Star className="w-4 h-4 fill-current" />
+        </div>
+        <span className="text-sm font-medium">{rating.toFixed(1)}</span>
+        <span className="text-sm text-gray-500 dark:text-gray-400">({count})</span>
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -204,15 +220,24 @@ export default function Booking() {
                     className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition-colors text-left"
                   >
                     <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium">{service.company_name}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      <div className="space-y-2">
+                        <div>
+                          <h3 className="font-medium">{service.company_name}</h3>
+                          {renderRating(service.rating, service.rating_count)}
+                        </div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           {service.name} • {service.duration} • ${service.price}
                         </p>
                         {service.company_address && (
-                          <div className="flex items-center mt-2 text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                             <MapPin className="w-4 h-4 mr-1" />
                             {service.company_address}
+                          </div>
+                        )}
+                        {service.company_phone && (
+                          <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
+                            <Phone className="w-4 h-4 mr-1" />
+                            {service.company_phone}
                           </div>
                         )}
                       </div>
