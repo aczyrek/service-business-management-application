@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, Users, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
 import VideoModal from '../components/VideoModal';
 
 export default function Home() {
-  const { user } = useAuth();
   const [showVideo, setShowVideo] = useState(false);
 
   return (
@@ -41,7 +39,7 @@ export default function Home() {
 
             <div className="flex flex-col sm:flex-row gap-4">
               <Link 
-                to={user ? "/booking" : "/auth"}
+                to="/booking"
                 className="w-full sm:w-auto inline-flex items-center justify-center px-6 md:px-8 py-3 md:py-4 bg-[#4361EE] dark:bg-[#6C8EFF] text-white rounded-full hover:bg-[#3651D4] dark:hover:bg-[#5B7FFF] transition-colors text-base md:text-lg font-medium"
               >
                 Book Now

@@ -23,15 +23,15 @@ export default function Navbar() {
           </Link>
 
           <div className="flex items-center space-x-4">
-            {user ? (
+            <Link
+              to="/booking"
+              className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+            >
+              Book Appointment
+            </Link>
+            
+            {user && (
               <>
-                <Link
-                  to="/booking"
-                  className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  Book Appointment
-                </Link>
-                
                 {profile?.role === 'admin' && (
                   <Link
                     to="/admin/settings"
@@ -55,7 +55,8 @@ export default function Navbar() {
                   <LogOut className="w-5 h-5" />
                 </button>
               </>
-            ) : (
+            )}
+            {!user && (
               <Link
                 to="/auth"
                 className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"

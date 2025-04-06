@@ -4,97 +4,70 @@ BookWise is a modern, user-friendly appointment scheduling system built with Rea
 
 ![BookWise Screenshot](https://images.unsplash.com/photo-1551650975-87deedd944c3?q=80&w=1974&auto=format&fit=crop)
 
+## Demo
+
+Try out BookWise at [https://cute-stroopwafel-5a296f.netlify.app](https://cute-stroopwafel-5a296f.netlify.app)
+
 ## Features
 
 - 📅 24/7 Online Booking
-- 👥 User Authentication & Authorization
-- 🔄 Real-time Updates
-- 📱 Responsive Design
-- 🎨 Modern UI/UX
-- 🔒 Secure Data Management
-- 👑 Admin Dashboard
-- 📋 Client Management
+  - Easy service category selection
+  - Real-time availability checking
+  - Flexible scheduling options
+  - Guest booking support
+
+- 👥 User Management
+  - Client profiles
+  - Admin dashboard
+  - Role-based access control
+  - Secure authentication
+
+- 🎨 Modern Design
+  - Responsive layout
+  - Dark mode support
+  - Clean, intuitive interface
+  - Accessible components
+
+- 🔒 Security
+  - Row Level Security (RLS)
+  - Secure data handling
+  - Protected routes
+  - Role-based permissions
+
+## Service Categories
+
+BookWise supports various service categories including:
+
+- 💇‍♂️ Barbershop Services
+- 💅 Nail Care
+- 🐕 Pet Grooming
+- 💄 Makeup Services
+- 👁️ Lashes & Brows
+- 💆‍♀️ Massage Therapy
+- 🏥 Physiotherapy
+- ⚡ Depilation
+- 🌸 Cosmetology
+- 🎨 Tattoo & Piercing
+- 🧘‍♀️ Spa & Wellness
+- 💪 Personal Training
+- 💉 Aesthetic Medicine
 
 ## Tech Stack
 
-- **Frontend:**
-  - React 18
-  - TypeScript
-  - Tailwind CSS
-  - Lucide React (Icons)
-  - React Router DOM
-  - React Hook Form
+### Frontend
+- React 18.3
+- TypeScript
+- Tailwind CSS
+- Lucide React Icons
+- React Router DOM v6
+- React Hook Form
+- Date-fns
 
-- **Backend:**
-  - Supabase (Database & Authentication)
-  - PostgreSQL
-  - Row Level Security
-
-## GitHub Setup
-
-### Repository Setup
-
-1. Create a new repository on GitHub:
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/yourusername/bookwise.git
-git push -u origin main
-```
-
-### Branch Strategy
-
-- `main`: Production-ready code
-- `develop`: Development branch
-- `feature/*`: New features
-- `bugfix/*`: Bug fixes
-- `release/*`: Release preparation
-
-### GitHub Actions Workflow
-
-Create `.github/workflows/ci.yml` for continuous integration:
-```yaml
-name: CI
-
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Setup Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '18'
-      - name: Install dependencies
-        run: npm ci
-      - name: Run linter
-        run: npm run lint
-      - name: Build
-        run: npm run build
-```
-
-### Git Hooks
-
-Using Husky for pre-commit hooks:
-```bash
-npx husky-init && npm install
-npx husky add .husky/pre-commit "npm run lint"
-```
-
-### Issue Templates
-
-Create `.github/ISSUE_TEMPLATE/`:
-- `bug_report.md`
-- `feature_request.md`
-- `custom.md`
+### Backend
+- Supabase
+- PostgreSQL
+- Row Level Security
+- Real-time subscriptions
 
 ## Getting Started
 
@@ -102,13 +75,13 @@ Create `.github/ISSUE_TEMPLATE/`:
 
 - Node.js (v18 or higher)
 - npm or yarn
-- Supabase Account
+- Supabase account
 
 ### Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/bookwise.git
+git clone <repository-url>
 cd bookwise
 ```
 
@@ -117,7 +90,8 @@ cd bookwise
 npm install
 ```
 
-3. Create a `.env` file in the root directory and add your Supabase credentials:
+3. Set up environment variables:
+Create a `.env` file in the root directory with:
 ```env
 VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
@@ -133,48 +107,88 @@ npm run dev
 ```
 bookwise/
 ├── src/
-│   ├── components/      # Reusable UI components
-│   ├── contexts/        # React contexts
-│   ├── lib/            # Utility functions and configurations
-│   ├── pages/          # Page components
-│   ├── types/          # TypeScript type definitions
-│   ├── App.tsx         # Main application component
-│   └── main.tsx        # Application entry point
-├── supabase/
-│   └── migrations/     # Database migrations
-└── public/            # Static assets
+│   ├── components/        # Reusable UI components
+│   │   ├── Navbar.tsx
+│   │   ├── ThemeToggle.tsx
+│   │   └── VideoModal.tsx
+│   ├── contexts/         # React contexts
+│   │   ├── AuthContext.tsx
+│   │   └── ThemeContext.tsx
+│   ├── lib/             # Utility functions
+│   │   ├── supabase.ts
+│   │   └── countryData.ts
+│   ├── pages/           # Page components
+│   │   ├── Home.tsx
+│   │   ├── Booking.tsx
+│   │   ├── Dashboard.tsx
+│   │   ├── Profile.tsx
+│   │   ├── Auth.tsx
+│   │   └── AdminSettings.tsx
+│   ├── types/           # TypeScript definitions
+│   │   └── database.ts
+│   ├── App.tsx
+│   └── main.tsx
+├── public/             # Static assets
+└── supabase/          # Supabase configurations
+    └── migrations/    # Database migrations
 ```
 
-## Database Schema
+## Features in Detail
 
-The application uses the following main tables:
+### Booking System
+- Category-based service selection
+- Real-time availability checking
+- Guest booking support
+- Automated confirmation system
 
-- `profiles`: User profiles and roles
-- `services`: Available services
-- `appointments`: Booking records
-- `client_forms`: Custom forms for appointments
-- `blocked_times`: Time slots marked as unavailable
+### User Dashboard
+- Appointment management
+- Booking history
+- Profile customization
+- Dark mode preference
 
-## Authentication
+### Admin Features
+- Service management
+- Appointment oversight
+- User management
+- Business settings
 
-BookWise uses Supabase Authentication with:
-- Email/Password authentication
-- Role-based access control
+### Profile Management
+- Personal information
+- Contact details
+- Appointment history
+- Preferences
+
+## Security Features
+
+### Authentication
+- Email/password authentication
+- Protected routes
 - Secure session management
+- Role-based access
 
-## Available Scripts
+### Data Protection
+- Row Level Security (RLS)
+- Secure API endpoints
+- Data validation
+- Error handling
 
-- `npm run dev`: Start development server
-- `npm run build`: Build for production
-- `npm run preview`: Preview production build
-- `npm run lint`: Run ESLint
+## Development
 
-## Security
+### Available Scripts
 
-- Row Level Security (RLS) policies for all tables
-- Role-based access control
-- Secure authentication flow
-- Protected API endpoints
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm run lint` - Run ESLint
+
+### Environment Variables
+
+Required environment variables:
+```env
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
 ## Contributing
 
@@ -184,45 +198,25 @@ BookWise uses Supabase Authentication with:
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-### Pull Request Process
+## Testing
 
-1. Update the README.md with details of changes if needed
-2. Update the version numbers in package.json following [SemVer](https://semver.org/)
-3. Ensure all tests pass and linting is clean
-4. Get approval from at least one other developer
-5. Squash commits before merging
+For testing the application, you can use these test accounts:
 
-### Commit Message Format
+- Admin Account:
+  - Email: admin@bookwise.com
+  - Password: admin123
 
-Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
-
-```
-<type>(<scope>): <description>
-
-[optional body]
-
-[optional footer]
-```
-
-Types:
-- feat: New feature
-- fix: Bug fix
-- docs: Documentation
-- style: Formatting
-- refactor: Code restructuring
-- test: Tests
-- chore: Maintenance
-
-## Version Control
-
-We use [SemVer](https://semver.org/) for versioning:
-- MAJOR version for incompatible API changes
-- MINOR version for backwards-compatible functionality
-- PATCH version for backwards-compatible bug fixes
+- Client Account:
+  - Email: client@bookwise.com
+  - Password: client123
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Support
+
+For support, please open an issue in the repository or contact the development team.
 
 ## Acknowledgments
 
@@ -230,7 +224,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Tailwind CSS](https://tailwindcss.com/) for styling
 - [Lucide](https://lucide.dev/) for icons
 - [React](https://reactjs.org/) for the UI framework
-
-## Support
-
-For support, email support@bookwise.com or open an issue in the repository.
